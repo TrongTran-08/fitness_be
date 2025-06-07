@@ -13,15 +13,15 @@ const chatLogSchema = new mongoose.Schema({
     log_data: [{
         question: {
             type: String,
-            required: true,
+            required: false,
         },
         response: {
             type: String,
-            required: true,
+            required: false,
         },
         timestamp: {
-            type: Date,
-            default: Date.now,
+            type: String, // Change to String to store ISO format directly
+            default: () => new Date().toISOString(), // Use ISO string
         }
     }],
     created_date: {
