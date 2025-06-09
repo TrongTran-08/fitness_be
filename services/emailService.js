@@ -17,7 +17,7 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: email,
-      subject: 'Verify Your Fitness Tracker Account',
+      subject: 'Verify Your Fitness Tracking Account',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #4a4a4a;">Welcome to Fitness Tracking!</h2>
