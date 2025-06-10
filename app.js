@@ -17,11 +17,11 @@ const fitbotRoutes = require('./routes/fitbotRoutes');
 let firebase;
 try {
   firebase = require('./config/firebase');
-  if (firebase.isMock) {
-    console.log('Using mock Firebase implementation in app.js');
-  } else {
-    console.log('Using real Firebase implementation in app.js');
-  }
+  // if (firebase.isMock) {
+  //   console.log('Using mock Firebase implementation in app.js');
+  // } else {
+  //   console.log('Using real Firebase implementation in app.js');
+  // }
 } catch (error) {
   console.error('Failed to load Firebase module:', error.message);
   firebase = {
