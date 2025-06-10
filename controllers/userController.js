@@ -140,7 +140,7 @@ class UserProfile {
       }
 
       const file = req.file;
-      // console.log("Full file object:", file);
+
 
       // Kiểm tra định dạng file
       const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -162,15 +162,16 @@ class UserProfile {
 
       // Try Firebase upload first
       try {
-        const { bucket, isMock } = require("../config/firebase");
+        const firebaseConfig = require("../config/firebase");
         
-        if (!isMock && bucket && bucket.file) {
-          // console.log("Attempting Firebase Storage upload...");
-          
+        // Check if Firebase is properly initialized (not mock)
+        if (firebaseConfig.isInitialized && firebaseConfig.bucket && firebaseConfig.bucket.file) {
+         
           const fileContent = await fs.readFile(file.path);
           const filePath = `profile_images/${fileName}`;
-          const fileUpload = bucket.file(filePath);
+          const fileUpload = firebaseConfig.bucket.file(filePath);
 
+          // Upload file lên Firebase Storage với metadata
           await fileUpload.save(fileContent, {
             metadata: {
               contentType: file.mimetype,
@@ -184,16 +185,15 @@ class UserProfile {
           });
 
           await fileUpload.makePublic();
-          publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+          publicUrl = `https://storage.googleapis.com/${firebaseConfig.bucket.name}/${filePath}`;
           uploadSuccess = true;
-          // console.log("Firebase upload successful:", publicUrl);
         } else {
-          throw new Error("Firebase Storage not available");
+          throw new Error("Firebase Storage not properly initialized - using local storage");
         }
       } catch (firebaseError) {
-        // console.log("Firebase upload failed:", firebaseError.message);
-        // console.log("Falling back to local file storage...");
-
+        console.log("Firebase upload failed:", firebaseError.message);
+        console.log("Falling back to local file storage...");
+        
         // Fallback: Move file to public uploads directory
         const uploadsDir = path.join(__dirname, '../public/uploads/profile_images');
         
@@ -206,7 +206,7 @@ class UserProfile {
         // Create public URL for local file
         publicUrl = `${req.protocol}://${req.get('host')}/uploads/profile_images/${fileName}`;
         uploadSuccess = true;
-        // console.log("Local upload successful:", publicUrl);
+        console.log("Local upload successful:", publicUrl);
       }
 
       // If neither upload method worked
@@ -230,9 +230,6 @@ class UserProfile {
       if (!user) {
         throw new Error("User not found - could not update profile in database");
       }
-
-      // console.log("Profile image URL saved to MongoDB successfully");
-
       return res.status(200).json({
         success: true,
         data: {

@@ -14,7 +14,7 @@ try {
   
   serviceAccount = require('./serviceAccountKey.json');
   
-  // Validate required fields
+  // Validate required fields and their format
   const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
   for (const field of requiredFields) {
     if (!serviceAccount[field]) {
@@ -22,12 +22,19 @@ try {
     }
   }
   
-  console.log('Service account file loaded successfully');
+  // Validate private key format
+  if (!serviceAccount.private_key.includes('BEGIN PRIVATE KEY') || 
+      !serviceAccount.private_key.includes('END PRIVATE KEY')) {
+    throw new Error('Invalid private key format in service account file');
+  }
+  
+  console.log('Service account file loaded and validated successfully');
   console.log('Project ID:', serviceAccount.project_id);
   console.log('Client Email:', serviceAccount.client_email);
   
 } catch (error) {
   console.error('Error loading service account:', error.message);
+  console.error('Please download a new service account key from Firebase Console');
   serviceAccount = null;
 }
 
@@ -55,26 +62,45 @@ let firebaseAdmin, bucket;
 
 try {
   if (!serviceAccount) {
-    throw new Error('Service account is not available');
+    throw new Error('Service account is not available - please check your serviceAccountKey.json file');
   }
   
-  // Check if Firebase app is already initialized
-  if (admin.apps.length > 0) {
-    firebaseAdmin = admin.app();
-    console.log('Using existing Firebase app');
-  } else {
-    // Try to initialize the real Firebase admin using JSON file
-    firebaseAdmin = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      storageBucket: 'fitness-tracking-ccf2a.firebasestorage.app',
-    });
-    console.log('Firebase Admin SDK initialized successfully with service account file');
-  }
+  // Delete existing apps to avoid conflicts
+  admin.apps.forEach(app => {
+    try {
+      app.delete();
+    } catch (err) {
+      // Ignore errors when deleting apps
+    }
+  });
+  
+  // Initialize Firebase admin with fresh credentials
+  firebaseAdmin = admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    storageBucket: 'fitness-tracking-ccf2a.firebasestorage.app',
+  });
+  
+  console.log('✅ Firebase Admin SDK initialized successfully with service account file');
   
   // Get the storage bucket after successful initialization
   const storage = admin.storage();
   bucket = storage.bucket();
-  console.log('Storage bucket name:', bucket.name);
+  console.log('📦 Storage bucket name:', bucket.name);
+  
+  // Test the bucket connection with timeout
+  const testConnection = async () => {
+    try {
+      const [files] = await bucket.getFiles({ maxResults: 1 });
+      console.log('✅ Firebase Storage connection test successful');
+      return true;
+    } catch (err) {
+      console.error('❌ Firebase Storage connection test failed:', err.message);
+      return false;
+    }
+  };
+  
+  // Run test after 1 second
+  setTimeout(testConnection, 1000);
   
 } catch (error) {
   console.error('Failed to initialize Firebase Admin SDK:', error.message);
@@ -105,6 +131,7 @@ module.exports = {
   bucket, 
   checkStorageConnection,
   isMock: firebaseAdmin === mockAdmin,
+  isInitialized: firebaseAdmin !== mockAdmin,
   // Export storage as well for direct access
   storage: firebaseAdmin === mockAdmin ? mockAdmin.storage() : admin.storage()
 };
