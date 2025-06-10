@@ -3,7 +3,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const { UserModel } = require("../models/userModel");
 const config = require("../config/config");
-const { bucket } = require("../config/firebase");
 const bcrypt = require('bcryptjs');
 const { BlacklistToken } = require("../models/blacklistToken");
 

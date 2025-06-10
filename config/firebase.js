@@ -2,39 +2,40 @@ const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
-// Validate and load service account JSON file
 let serviceAccount;
 try {
-  const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
-  
-  // Check if file exists
-  if (!fs.existsSync(serviceAccountPath)) {
-    throw new Error('Service account file not found at: ' + serviceAccountPath);
+  // Kiểm tra biến môi trường trước
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log('Service account loaded from environment variable');
+  } else {
+    const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
+    if (!fs.existsSync(serviceAccountPath)) {
+      throw new Error('Service account file not found at: ' + serviceAccountPath);
+    }
+    serviceAccount = require('./serviceAccountKey.json');
   }
-  
-  serviceAccount = require('./serviceAccountKey.json');
-  
-  // Validate required fields and their format
+
+  // Validate required fields
   const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
   for (const field of requiredFields) {
     if (!serviceAccount[field]) {
       throw new Error(`Missing required field in service account: ${field}`);
     }
   }
-  
-  // Validate private key format
+
   if (!serviceAccount.private_key.includes('BEGIN PRIVATE KEY') || 
       !serviceAccount.private_key.includes('END PRIVATE KEY')) {
-    throw new Error('Invalid private key format in service account file');
+    throw new Error('Invalid private key format in service account');
   }
-  
-  console.log('Service account file loaded and validated successfully');
+
+  console.log('Service account validated successfully');
   console.log('Project ID:', serviceAccount.project_id);
   console.log('Client Email:', serviceAccount.client_email);
-  
+
 } catch (error) {
   console.error('Error loading service account:', error.message);
-  console.error('Please download a new service account key from Firebase Console');
+  console.error('Please check FIREBASE_SERVICE_ACCOUNT env or serviceAccountKey.json');
   serviceAccount = null;
 }
 
