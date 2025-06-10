@@ -43,11 +43,9 @@ const User = mongoose.model('User', userSchema);
 
 async function cleanupInvalidEnumValues() {
     try {
-        console.log('Starting database cleanup...');
         
         // Find all users
         const users = await User.find({});
-        console.log(`Found ${users.length} users to check`);
         
         let updatedCount = 0;
         const validActivityLevels = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
@@ -60,21 +58,18 @@ async function cleanupInvalidEnumValues() {
             if (user.profile) {
                 // Fix invalid activityLevel
                 if (user.profile.activityLevel && !validActivityLevels.includes(user.profile.activityLevel)) {
-                    console.log(`User ${user.email}: Fixing invalid activityLevel: ${user.profile.activityLevel} -> sedentary`);
                     user.profile.activityLevel = 'sedentary';
                     needsUpdate = true;
                 }
                 
                 // Fix invalid goal
                 if (user.profile.goal && !validGoals.includes(user.profile.goal)) {
-                    console.log(`User ${user.email}: Fixing invalid goal: ${user.profile.goal} -> maintenance`);
                     user.profile.goal = 'maintenance';
                     needsUpdate = true;
                 }
                 
                 // Fix invalid gender
                 if (user.profile.gender && !validGenders.includes(user.profile.gender)) {
-                    console.log(`User ${user.email}: Fixing invalid gender: ${user.profile.gender} -> undefined`);
                     user.profile.gender = undefined;
                     needsUpdate = true;
                 }
@@ -85,8 +80,6 @@ async function cleanupInvalidEnumValues() {
                 updatedCount++;
             }
         }
-        
-        console.log(`Cleanup completed. Updated ${updatedCount} users.`);
         
     } catch (error) {
         console.error('Cleanup error:', error);

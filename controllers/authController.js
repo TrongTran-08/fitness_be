@@ -11,7 +11,7 @@ class AuthController {
   static async login(req, res, next) {
     try {
       const { email, password } = req.body;
-      console.log("Logged in with email:", email);
+      
       const user = await UserModel.findByEmail(email);
       if (!user) {
         return res
@@ -81,6 +81,10 @@ class AuthController {
         },
         message: usingTempPassword ? "Login successful. Please change your password." : "Login successful"
       });
+
+      if(res.statusCode === 200) {
+        console.log("Logged in with email:", email);
+      }
     } catch (error) {
       console.error("Login error:", error);
       next(error);
@@ -90,7 +94,6 @@ class AuthController {
   static async register(req, res, next) {
     try {
       const { firstName, lastName, userName, email, password } = req.body;
-      console.log("Registered with email:", email);
 
       // Check if email already exists
       const existingEmail = await UserModel.findByEmail(email);
@@ -136,6 +139,10 @@ class AuthController {
         process.env.JWT_SECRET || "your_jwt_secret",
         { expiresIn: "1h" }
       );
+
+      if (res.statusCode === 201) {
+        console.log("User registered successfully:", email);
+      }
 
       res.status(201).json({
         success: true,
@@ -363,19 +370,16 @@ class AuthController {
       if (user.profile) {
         // Fix invalid activityLevel
         if (user.profile.activityLevel && !validActivityLevels.includes(user.profile.activityLevel)) {
-          console.log(`Fixing invalid activityLevel: ${user.profile.activityLevel} -> sedentary`);
           user.profile.activityLevel = 'sedentary'; // Default to sedentary
         }
 
         // Fix invalid goal
         if (user.profile.goal && !validGoals.includes(user.profile.goal)) {
-          console.log(`Fixing invalid goal: ${user.profile.goal} -> maintenance`);
           user.profile.goal = 'maintenance'; // Default to maintenance
         }
 
         // Fix invalid gender
         if (user.profile.gender && !validGenders.includes(user.profile.gender)) {
-          console.log(`Fixing invalid gender: ${user.profile.gender} -> undefined`);
           user.profile.gender = undefined; // Remove invalid gender
         }
       }
@@ -441,15 +445,37 @@ class AuthController {
         });
       }
 
-      // Hash the new password
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      // Clean up any invalid enum values before saving (same as in forgetPassword)
+      const validActivityLevels = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
+      const validGoals = ['weight_loss', 'muscle_gain', 'maintenance'];
+      const validGenders = ['male', 'female'];
 
-      // Update user with new password and clear reset flags
-      user.password = hashedPassword;
+      if (user.profile) {
+        // Fix invalid activityLevel
+        if (user.profile.activityLevel && !validActivityLevels.includes(user.profile.activityLevel)) {
+          user.profile.activityLevel = 'sedentary';
+        }
+
+        // Fix invalid goal
+        if (user.profile.goal && !validGoals.includes(user.profile.goal)) {
+          user.profile.goal = 'maintenance';
+        }
+
+        // Fix invalid gender
+        if (user.profile.gender && !validGenders.includes(user.profile.gender)) {
+          user.profile.gender = undefined;
+        }
+      }
+
+      // Override the old password with the new one
+      user.password = newPassword; // This will trigger the pre-save middleware to hash it
       user.tempPassword = undefined;
       user.tempPasswordExpires = undefined;
       user.needsPasswordReset = false;
+
+      // Save the user - this will trigger the pre-save middleware for password hashing
       await user.save();
+
 
       res.status(200).json({
         success: true,
