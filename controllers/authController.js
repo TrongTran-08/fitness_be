@@ -355,6 +355,31 @@ class AuthController {
         });
       }
 
+      // Clean up any invalid enum values before saving
+      const validActivityLevels = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
+      const validGoals = ['weight_loss', 'muscle_gain', 'maintenance'];
+      const validGenders = ['male', 'female'];
+
+      if (user.profile) {
+        // Fix invalid activityLevel
+        if (user.profile.activityLevel && !validActivityLevels.includes(user.profile.activityLevel)) {
+          console.log(`Fixing invalid activityLevel: ${user.profile.activityLevel} -> sedentary`);
+          user.profile.activityLevel = 'sedentary'; // Default to sedentary
+        }
+
+        // Fix invalid goal
+        if (user.profile.goal && !validGoals.includes(user.profile.goal)) {
+          console.log(`Fixing invalid goal: ${user.profile.goal} -> maintenance`);
+          user.profile.goal = 'maintenance'; // Default to maintenance
+        }
+
+        // Fix invalid gender
+        if (user.profile.gender && !validGenders.includes(user.profile.gender)) {
+          console.log(`Fixing invalid gender: ${user.profile.gender} -> undefined`);
+          user.profile.gender = undefined; // Remove invalid gender
+        }
+      }
+
       // Generate a temporary password (8 characters: letters + numbers)
       const tempPassword = crypto.randomBytes(4).toString('hex').toUpperCase();
       const tempPasswordExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
