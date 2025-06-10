@@ -29,14 +29,37 @@ class AuthController {
         });
       }
 
-      const isValid = await UserModel.verifyPassword(password, user.password);
+      let isValid = false;
+      let usingTempPassword = false;
+
+      // First check if using temporary password
+      if (user.tempPassword && user.tempPasswordExpires && user.tempPasswordExpires > Date.now()) {
+        isValid = await bcrypt.compare(password, user.tempPassword);
+        if (isValid) {
+          usingTempPassword = true;
+        }
+      }
+
+      // If not valid with temp password, check regular password
+      if (!isValid) {
+        isValid = await UserModel.verifyPassword(password, user.password);
+      }
+
       if (!isValid) {
         return res
           .status(401)
           .json({ success: false, message: "Invalid password or email" });
       }
 
-      // Include verification status in response for UI handling
+      // If using temporary password, clear it and set needsPasswordReset flag
+      if (usingTempPassword) {
+        user.tempPassword = undefined;
+        user.tempPasswordExpires = undefined;
+        user.needsPasswordReset = true;
+        await user.save();
+      }
+
+      // Generate JWT token
       const token = jwt.sign(
         { email: user.email, id: user._id },
         config.JWT_SECRET,
@@ -52,9 +75,11 @@ class AuthController {
           userName: user.userName,
           email: user.email,
           profile: user.profile,
-          isVerified: user.isVerified, // Include verification status
+          isVerified: user.isVerified,
           hasCompletedOnboarding: user.hasCompletedOnboarding,
+          needsPasswordReset: user.needsPasswordReset || false,
         },
+        message: usingTempPassword ? "Login successful. Please change your password." : "Login successful"
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -65,9 +90,9 @@ class AuthController {
   static async register(req, res, next) {
     try {
       const { firstName, lastName, userName, email, password } = req.body;
-      console.log("Đăng ký với email:", email);
+      console.log("Registered with email:", email);
 
-      // Kiểm tra email đã tồn tại chưa
+      // Check if email already exists
       const existingEmail = await UserModel.findByEmail(email);
       if (existingEmail) {
         return res
@@ -75,7 +100,7 @@ class AuthController {
           .json({ success: false, message: "Email already exists" });
       }
 
-      // Kiểm tra userName đã tồn tại chưa
+      // Check if userName already exists
       const existingUserName = await UserModel.findByUserName(userName);
       if (existingUserName) {
         return res
@@ -306,6 +331,107 @@ class AuthController {
       });
     } catch (error) {
       console.error("Resend verification error:", error);
+      next(error);
+    }
+  }
+  static async forgetPassword(req, res, next) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      // Find user by email
+      const user = await UserModel.findByEmail(email);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found with this email address",
+        });
+      }
+
+      // Generate a temporary password (8 characters: letters + numbers)
+      const tempPassword = crypto.randomBytes(4).toString('hex').toUpperCase();
+      const tempPasswordExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      // Hash the temporary password before storing
+      const hashedTempPassword = await bcrypt.hash(tempPassword, 10);
+
+      // Update user with temporary password
+      user.tempPassword = hashedTempPassword;
+      user.tempPasswordExpires = tempPasswordExpires;
+      user.needsPasswordReset = true;
+      await user.save();
+
+      // Send temporary password email
+      const emailSent = await emailService.sendResetPasswordEmail(
+        email,
+        tempPassword
+      );
+
+      res.status(200).json({
+        success: true,
+        message: emailSent
+          ? "A temporary password has been sent to your email address."
+          : "Could not send temporary password email. Please try again later."
+      });
+    } catch (error) {
+      console.error("Forget password error:", error);
+      next(error);
+    }
+  }
+
+  static async resetPassword(req, res, next) {
+    try {
+      const { newPassword } = req.body;
+      const userEmail = req.user.email;
+
+      if (!newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "New password is required",
+        });
+      }
+
+      // Validate password strength (optional)
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 6 characters long",
+        });
+      }
+
+      // Find user by email
+      const user = await UserModel.findByEmail(userEmail);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update user with new password and clear reset flags
+      user.password = hashedPassword;
+      user.tempPassword = undefined;
+      user.tempPasswordExpires = undefined;
+      user.needsPasswordReset = false;
+      await user.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Password has been reset successfully",
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
       next(error);
     }
   }

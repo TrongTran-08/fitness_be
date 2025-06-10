@@ -18,4 +18,8 @@ router.get('/activity-data', AuthController.checkBlacklist, getActivityCalendar.
 router.get('/verify-email/:token', AuthController.verifyEmail);
 router.post('/resend-verification', AuthController.resendVerificationEmail);
 
+// Password reset routes
+router.post('/forgot-password', AuthController.forgetPassword);
+router.post('/reset-password', AuthController.checkBlacklist, AuthController.resetPassword);
+
 module.exports = router;
