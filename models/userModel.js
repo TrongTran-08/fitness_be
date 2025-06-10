@@ -31,7 +31,10 @@ const userSchema = new mongoose.Schema({
         default: false
     },
     verificationToken: String,
-    verificationTokenExpires: Date
+    verificationTokenExpires: Date,
+    tempPassword: String,
+    tempPasswordExpires: Date,
+    needsPasswordReset: { type: Boolean, default: false }
 }, { collection: 'user_infor' });
 
 userSchema.pre('save', async function (next) {
@@ -123,6 +126,23 @@ class UserModel {
             { email },
             { $set: userData },
             { new: true }
+        );
+    }
+
+    static async cleanupExpiredTempPasswords() {
+        return await User.updateMany(
+            { 
+                tempPasswordExpires: { $lt: new Date() }
+            },
+            { 
+                $unset: { 
+                    tempPassword: 1, 
+                    tempPasswordExpires: 1 
+                },
+                $set: {
+                    needsPasswordReset: false
+                }
+            }
         );
     }
 }

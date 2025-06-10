@@ -44,6 +44,40 @@ class EmailService {
     }
   }
 
+  async sendResetPasswordEmail(email, tempPassword) {
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: 'Your Temporary Password - Fitness Tracking',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4a4a4a;">Password Reset Request</h2>
+          <p>You have requested a password reset for your Fitness Tracking account.</p>
+          <p>Your temporary password is:</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; text-align: center; margin: 20px 0;">
+            <strong style="font-size: 18px; font-family: monospace; color: #333;">${tempPassword}</strong>
+          </div>
+          <p><strong>Important:</strong></p>
+          <ul>
+            <li>This temporary password will expire in 24 hours</li>
+            <li>You will be required to change your password after logging in</li>
+            <li>For security reasons, please change your password immediately after logging in</li>
+          </ul>
+          <p>If you did not request this password reset, please ignore this email.</p>
+        </div>
+      `
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Reset password email sent:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('Error sending reset password email:', error);
+      return false;
+    }
+  }
+
   async sendTestEmail(to) {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
@@ -51,7 +85,7 @@ class EmailService {
       subject: 'Email Configuration Test',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4a4a4a;">Fitness Tracker Email Test</h2>
+          <h2 style="color: #4a4a4a;">Fitness Tracking Email Test</h2>
           <p>This is a test email to confirm your email configuration is working correctly.</p>
           <p>Details:</p>
           <ul>
